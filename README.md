@@ -1,0 +1,2 @@
+# paint-calculator
+DIGITAL REPUBLIC CODE CHALLENGE
