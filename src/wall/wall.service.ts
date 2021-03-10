@@ -1,7 +1,8 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Wall, WallDocument } from './schemas/wall.schema';
+import { PaintService } from 'src/paint/paint.service';
+import { Wall, WallDocument, PaintCans } from './schemas/wall.schema';
 
 const DOOR =  {
   height: 1.9,
@@ -17,6 +18,7 @@ export class WallService {
   constructor(
     @InjectModel('walls')
     private readonly wallModel: Model<WallDocument>,
+    private readonly paintService: PaintService
   ){ }
   private windowArea = WINDOW.height * WINDOW.width;
   private doorArea = DOOR.height * DOOR.width;
@@ -40,6 +42,11 @@ export class WallService {
   async getWalls(room = {}){
     const walls = await this.wallModel.find(room).sort({room: 1}).select('-_id -createdAt -updatedAt')
     return walls
+  }
+
+  async delete(room = {}){
+    const isDeleted = await this.wallModel.deleteMany(room);
+    return isDeleted.deletedCount == 0 ? 'Sala não encontrada' : 'Sala deletada com sucesso';
   }
 
   async save(walls: Wall[]){
@@ -95,5 +102,22 @@ export class WallService {
       && this.isDoorFit(wall) 
       && this.isWindowFit(wall))) 
     return isOKToSave
+  }
+
+  getPaintableArea(walls: Wall[]){
+    const paintableArea = walls.map(wall => {
+      const wallArea = this.getWallArea(wall)
+      const doorArea = this.getDoorArea(wall)
+      const windowArea = this.getWindowArea(wall)
+      return wallArea - (doorArea + windowArea)
+    }).reduce((a, b) => a+b)
+    return paintableArea
+  }
+  
+  calculate(walls: Wall[]){
+    const paintableArea = this.getPaintableArea(walls)
+    const liters = this.paintService.getLitersNeededToPaint(walls, paintableArea)
+    const paintCans: PaintCans = this.paintService.calculateCan(liters)
+    return paintCans
   }
 }
